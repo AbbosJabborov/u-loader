@@ -86,6 +86,20 @@ Open your NPM admin dashboard:
 
 ### Part 2: Frontend Deployment on Cloudflare Pages (`loader.claive.uz`)
 
+#### Option A: Deploy with Wrangler CLI (Fastest)
+From your local terminal in `/frontend`:
+```bash
+cd frontend
+
+# Login to your Cloudflare account (first time only)
+npx wrangler login
+
+# Build & deploy directly to Cloudflare Pages
+npm run deploy
+```
+This deploys `./dist` to Cloudflare Pages project `u-loader` using `wrangler.toml`. Then attach `loader.claive.uz` in your Cloudflare Pages dashboard under **Custom Domains**.
+
+#### Option B: Deploy via Cloudflare Git Integration
 1. Go to **Cloudflare Dashboard** $\rightarrow$ **Workers & Pages** $\rightarrow$ **Create Application** $\rightarrow$ **Pages** $\rightarrow$ **Connect to Git**.
 2. Select your repository.
 3. Configure build settings:
