@@ -8,9 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "pages:dev": "wrangler pages dev ./dist",
-    "pages:deploy": "wrangler pages deploy ./dist --project-name=u-loader",
-    "deploy": "npm run build && wrangler pages deploy ./dist --project-name=u-loader"
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "axios": "^1.20.0",
