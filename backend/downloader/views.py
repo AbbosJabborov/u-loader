@@ -37,19 +37,24 @@ class MediaInfoView(APIView):
         # Check Cache
         cached = MediaInfoCache.objects.filter(url=url).first()
         if cached and cached.is_valid():
-            return Response(cached.data)
+            # Invalidate stale cache if a playlist/album was saved with 0 tracks
+            if cached.data.get('is_playlist') and not cached.data.get('tracks'):
+                cached.delete()
+            else:
+                return Response(cached.data)
 
         try:
             info = extract_media_info(url)
-            # Store in cache for 1 hour
-            MediaInfoCache.objects.update_or_create(
-                url=url,
-                defaults={
-                    'platform': info.get('platform', 'generic'),
-                    'data': info,
-                    'expires_at': timezone.now() + timedelta(hours=1)
-                }
-            )
+            # Only store in cache if it's not an empty playlist
+            if not info.get('is_playlist') or info.get('tracks'):
+                MediaInfoCache.objects.update_or_create(
+                    url=url,
+                    defaults={
+                        'platform': info.get('platform', 'generic'),
+                        'data': info,
+                        'expires_at': timezone.now() + timedelta(hours=1)
+                    }
+                )
             return Response(info)
         except Exception as e:
             return Response(

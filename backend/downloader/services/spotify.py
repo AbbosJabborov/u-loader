@@ -10,16 +10,24 @@ from django.conf import settings
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, APIC, error as ID3Error
 
-SPOTIFY_URL_REGEX = r'(?:open\.spotify\.com/(track|playlist|album)/|spotify:(track|playlist|album):)([a-zA-Z0-9]+)'
+SPOTIFY_URL_REGEX = r'(?:open\.spotify\.com/(?:intl-[a-zA-Z0-9_\-]+/)?(track|playlist|album)/|spotify:(track|playlist|album):)([a-zA-Z0-9]+)'
 
 def is_spotify_url(url: str) -> bool:
-    return bool(re.search(SPOTIFY_URL_REGEX, url))
+    return bool(re.search(SPOTIFY_URL_REGEX, url) or 'spotify.link/' in url)
 
 def parse_spotify_url(url: str) -> tuple[str, str]:
-    """Returns (entity_type, entity_id), e.g. ('track', '4cOdK2wGUTYLY946tQ157V')"""
+    """Returns (entity_type, entity_id), e.g. ('album', '4m2880jivSbbyEGAKfITCa')"""
+    # Handle shortened redirect links (e.g. spotify.link)
+    if 'spotify.link/' in url:
+        try:
+            r = requests.head(url, allow_redirects=True, timeout=5)
+            url = r.url
+        except Exception:
+            pass
+
     match = re.search(SPOTIFY_URL_REGEX, url)
     if not match:
-        raise ValueError("Invalid Spotify URL")
+        raise ValueError("Invalid Spotify URL. Please paste a valid track, album, or playlist link.")
     entity_type = match.group(1) or match.group(2)
     entity_id = match.group(3)
     return entity_type, entity_id
@@ -65,7 +73,7 @@ def extract_spotify_info(url: str) -> dict:
         except Exception:
             pass
 
-    # Embed extraction (zero-auth, extracts full tracklist directly from Spotify embed)
+    # Method 1: Embed extraction (fast, full tracks from Next.js payload)
     try:
         embed_data = _extract_with_embed(entity_type, entity_id, url)
         if embed_data and (not embed_data.get('is_playlist') or embed_data.get('track_count', 0) > 0):
@@ -73,16 +81,29 @@ def extract_spotify_info(url: str) -> dict:
     except Exception:
         pass
 
-    # Fallback to public API / web token
+    # Method 2: Direct Spotify Web Player HTML scraping
+    try:
+        html_data = _extract_with_html(entity_type, entity_id, url)
+        if html_data and (not html_data.get('is_playlist') or html_data.get('track_count', 0) > 0):
+            return html_data
+    except Exception:
+        pass
+
+    # Method 3: Fallback to public API / web token
     token = fetch_spotify_public_token()
     if token:
         try:
-            return _extract_with_token(token, entity_type, entity_id, url)
+            token_data = _extract_with_token(token, entity_type, entity_id, url)
+            if token_data and (not token_data.get('is_playlist') or token_data.get('track_count', 0) > 0):
+                return token_data
         except Exception:
             pass
 
-    # Final fallback: oEmbed
-    return _extract_with_oembed(entity_type, entity_id, url)
+    # Method 4: oEmbed (only valid for single tracks, does not provide playlist/album tracks)
+    if entity_type == 'track':
+        return _extract_with_oembed(entity_type, entity_id, url)
+
+    raise ValueError(f"Unable to extract songs for this Spotify {entity_type}. Please verify the link is public.")
 
 def _extract_with_spotipy(sp, entity_type: str, entity_id: str, url: str) -> dict:
     if entity_type == 'track':
@@ -223,7 +244,11 @@ def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
         raise ValueError("Spotify embed data not found")
 
     data = json.loads(match.group(1))
-    entity = data.get('props', {}).get('pageProps', {}).get('state', {}).get('data', {}).get('entity', {})
+    page_props = data.get('props', {}).get('pageProps', {})
+    if page_props.get('status') == 404:
+        raise ValueError("Spotify entity returned 404 in embed")
+
+    entity = page_props.get('state', {}).get('data', {}).get('entity', {})
     if not entity:
         raise ValueError("Spotify entity payload empty")
 
@@ -238,10 +263,14 @@ def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
 
     if is_playlist:
         raw_tracks = entity.get('trackList', [])
+        if not raw_tracks:
+            raise ValueError("No tracks found in embed payload")
+
+        album_artist = entity.get('subtitle') or ''
         tracks = []
         for idx, t in enumerate(raw_tracks):
             track_id = t.get('uri', '').split(':')[-1] or f"track_{idx}"
-            artist = t.get('subtitle', '').replace('\xa0', ' ') or 'Unknown Artist'
+            artist = t.get('subtitle', '').replace('\xa0', ' ') or album_artist or 'Unknown Artist'
             t_title = t.get('title', 'Unknown Title')
             duration = int(t.get('duration', 0) / 1000)
             tracks.append({
@@ -253,10 +282,13 @@ def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
                 'query': f"{artist} - {t_title} audio"
             })
 
+        if not tracks:
+            raise ValueError("Parsed 0 tracks from embed")
+
         return {
             'platform': 'spotify',
             'title': name,
-            'author': entity.get('subtitle') or 'Spotify',
+            'author': album_artist or 'Spotify',
             'thumbnail': cover,
             'url': url,
             'is_playlist': True,
@@ -275,6 +307,108 @@ def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
             'author': artists,
             'thumbnail': cover,
             'duration': int(entity.get('duration', 0) / 1000),
+            'url': url,
+            'is_playlist': False,
+            'formats': [
+                {'id': 'audio_mp3_320k', 'label': 'MP3 (320 kbps High Quality)', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
+                {'id': 'audio_mp3_192k', 'label': 'MP3 (192 kbps Standard)', 'type': 'audio', 'quality': '192k', 'ext': 'mp3'},
+            ]
+        }
+
+def _extract_with_html(entity_type: str, entity_id: str, url: str) -> dict:
+    """Scrapes metadata and tracklist directly from Spotify Web Player HTML."""
+    clean_url = f"https://open.spotify.com/{entity_type}/{entity_id}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    res = requests.get(clean_url, headers=headers, timeout=10)
+    res.raise_for_status()
+
+    # Title
+    og_title = re.search(r'<meta property="og:title" content="([^"]+)"', res.text)
+    raw_title = og_title.group(1) if og_title else 'Spotify Media'
+    # Remove suffix like " - Album by ... | Spotify"
+    title = re.sub(r' - (?:Album|Playlist|Song|Single) by .*?\| Spotify$', '', raw_title).strip()
+    if not title:
+        title = raw_title
+
+    # Cover
+    og_image = re.search(r'<meta property="og:image" content="([^"]+)"', res.text)
+    thumbnail = og_image.group(1) if og_image else ''
+
+    # Author
+    og_desc = re.search(r'<meta property="og:description" content="([^"]+)"', res.text)
+    author = 'Spotify'
+    if og_desc:
+        parts = [p.strip() for p in og_desc.group(1).split('·')]
+        if parts:
+            author = parts[0]
+
+    is_playlist = entity_type in ['playlist', 'album']
+    if is_playlist:
+        tracks = []
+        seen = set()
+        # Matches track items in list row titles
+        matches = re.findall(
+            r'href="/track/([a-zA-Z0-9]+)"[^>]*>.*?data-encore-id="listRowTitle"[^>]*>(?:<span[^>]*>)?(.*?)(?:</span>)?</p>',
+            res.text,
+            re.DOTALL
+        )
+        for tid, raw_track_title in matches:
+            if tid in seen:
+                continue
+            seen.add(tid)
+            t_clean = re.sub(r'<[^>]+>', '', raw_track_title).strip()
+            tracks.append({
+                'id': tid,
+                'title': t_clean,
+                'artist': author,
+                'duration': 0,
+                'thumbnail': thumbnail,
+                'query': f"{author} - {t_clean} audio"
+            })
+
+        if not tracks:
+            # Fallback: parse meta tags for track links
+            meta_tracks = re.findall(r'<meta name="music:song" content="https://open\.spotify\.com/track/([a-zA-Z0-9]+)"', res.text)
+            for idx, tid in enumerate(meta_tracks):
+                if tid in seen:
+                    continue
+                seen.add(tid)
+                tracks.append({
+                    'id': tid,
+                    'title': f"Track {idx + 1}",
+                    'artist': author,
+                    'duration': 0,
+                    'thumbnail': thumbnail,
+                    'query': f"{author} Track {idx + 1} audio"
+                })
+
+        if not tracks:
+            raise ValueError("No tracks could be parsed from Spotify HTML")
+
+        return {
+            'platform': 'spotify',
+            'title': title,
+            'author': author,
+            'thumbnail': thumbnail,
+            'url': url,
+            'is_playlist': True,
+            'track_count': len(tracks),
+            'tracks': tracks,
+            'formats': [
+                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
+                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
+            ]
+        }
+    else:
+        return {
+            'platform': 'spotify',
+            'title': f"{author} - {title}",
+            'author': author,
+            'thumbnail': thumbnail,
+            'duration': 0,
             'url': url,
             'is_playlist': False,
             'formats': [
@@ -335,7 +469,7 @@ def download_and_tag_spotify_track(
         'default_search': 'ytsearch',
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded', 'ios', 'android', 'web']
+                'player_client': ['mweb', 'web_embedded', 'android', 'ios']
             }
         },
     }

@@ -40,7 +40,7 @@ def extract_media_info(url: str) -> dict:
         'noplaylist': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded', 'ios', 'android', 'web']
+                'player_client': ['mweb', 'web_embedded', 'android', 'ios']
             }
         },
     }

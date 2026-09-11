@@ -80,7 +80,7 @@ export const detectPlatform = (url = '') => {
   if (/(?:pinterest\.[a-z.]+|pin\.it)\//i.test(trimmed)) {
     return PLATFORMS.PINTEREST;
   }
-  if (/(?:open\.spotify\.com\/(?:track|playlist|album)\/|spotify:(?:track|playlist|album):)/i.test(trimmed)) {
+  if (/(?:open\.spotify\.com\/(?:intl-[a-zA-Z0-9_\-]+\/)?(?:track|playlist|album)\/|spotify:(?:track|playlist|album):|spotify\.link\/)/i.test(trimmed)) {
     return PLATFORMS.SPOTIFY;
   }
 

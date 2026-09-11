@@ -19,7 +19,7 @@ PLATFORM_PATTERNS = [
     ),
     (
         'spotify',
-        r'^(https?://)?(open\.spotify\.com/(track|playlist|album)/|spotify:(track|playlist|album):)[a-zA-Z0-9]+'
+        r'^(https?://)?(open\.spotify\.com/(intl-[a-zA-Z0-9_\-]+/)?(track|playlist|album)/|spotify:(track|playlist|album):|spotify\.link/)[a-zA-Z0-9]+'
     ),
 ]
 
