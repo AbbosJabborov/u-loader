@@ -1,0 +1,30 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+media/downloads/*
+!media/downloads/.gitkeep
+staticfiles/
+
+# Environment variables
+.env
+.env.local
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+
+# Cookies (Keep secret)
+backend/cookies/*.txt
+!backend/cookies/.gitkeep

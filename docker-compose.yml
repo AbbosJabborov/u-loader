@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: u_loader_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uloader_db}
+      POSTGRES_USER: ${POSTGRES_USER:-uloader_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uloader_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - uloader_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uloader_user} -d ${POSTGRES_DB:-uloader_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: u_loader_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - uloader_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: u_loader_api
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 core.wsgi:application"
+    ports:
+      - "${API_HOST_PORT:-8088}:8000"
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-uloader-change-in-production-374829}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-api-loader.claive.uz,localhost,127.0.0.1}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://loader.claive.uz,http://localhost:5173,http://localhost:3000}
+      - POSTGRES_DB=${POSTGRES_DB:-uloader_db}
+      - POSTGRES_USER=${POSTGRES_USER:-uloader_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uloader_secure_password}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - FILE_EXPIRATION_MINUTES=${FILE_EXPIRATION_MINUTES:-60}
+    volumes:
+      - media_data:/app/media/downloads
+      - ./backend/cookies:/app/cookies
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - uloader_network
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: u_loader_worker
+    restart: unless-stopped
+    command: celery -A core worker -l info --concurrency=3
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-uloader-change-in-production-374829}
+      - POSTGRES_DB=${POSTGRES_DB:-uloader_db}
+      - POSTGRES_USER=${POSTGRES_USER:-uloader_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uloader_secure_password}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - FILE_EXPIRATION_MINUTES=${FILE_EXPIRATION_MINUTES:-60}
+    volumes:
+      - media_data:/app/media/downloads
+      - ./backend/cookies:/app/cookies
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - uloader_network
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: u_loader_beat
+    restart: unless-stopped
+    command: celery -A core beat -l info
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-uloader-change-in-production-374829}
+      - POSTGRES_DB=${POSTGRES_DB:-uloader_db}
+      - POSTGRES_USER=${POSTGRES_USER:-uloader_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uloader_secure_password}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - FILE_EXPIRATION_MINUTES=${FILE_EXPIRATION_MINUTES:-60}
+    volumes:
+      - media_data:/app/media/downloads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - uloader_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
+
+networks:
+  uloader_network:
+    driver: bridge
