@@ -7,7 +7,7 @@ PLATFORM_PATTERNS = [
     ),
     (
         'instagram',
-        r'^(https?://)?(www\.)?instagram\.com/(reel|p|tv)/[a-zA-Z0-9_\-]+'
+        r'^(https?://)?(www\.)?instagram\.com/(reel|p|tv|stories)/.+'
     ),
     (
         'tiktok',

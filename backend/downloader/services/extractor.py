@@ -4,12 +4,14 @@ import yt_dlp
 from django.conf import settings
 from .detector import detect_platform
 from .spotify import extract_spotify_info, is_spotify_url
+from .pinterest import extract_pinterest_media
 
 def get_cookie_file(platform: str) -> str | None:
     """Returns path to platform cookie file if present."""
     cookie_candidates = [
         settings.COOKIES_DIR / f"{platform}.txt",
         settings.COOKIES_DIR / "cookies.txt",
+        settings.COOKIES_DIR / "youtube.txt",
     ]
     for c in cookie_candidates:
         if c.exists() and c.stat().st_size > 0:
@@ -25,12 +27,22 @@ def extract_media_info(url: str) -> dict:
         return extract_spotify_info(url)
 
     cookie_file = get_cookie_file(platform)
+
+    # Pinterest handled with dedicated video & image extractor
+    if platform == 'pinterest':
+        return extract_pinterest_media(url, cookie_file=cookie_file)
+
     ydl_opts = {
         'skip_download': True,
         'extract_flat': False,
         'quiet': True,
         'no_warnings': True,
         'noplaylist': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['mweb', 'web_embedded', 'ios', 'android', 'web']
+            }
+        },
     }
     if cookie_file:
         ydl_opts['cookiefile'] = cookie_file
@@ -68,15 +80,10 @@ def extract_media_info(url: str) -> dict:
                 elif height >= 360:
                     video_qualities.add('360p')
 
-        # Fallback default video options if format heights were not explicitly exposed (e.g. TikTok / IG)
-        if not video_qualities and has_video:
-            video_qualities = {'720p (HD)', 'Best Available'}
-
         # Construct clean format options for frontend
         available_formats = []
 
-        # Video formats
-        if has_video or platform in ['youtube', 'instagram', 'tiktok', 'pinterest']:
+        if has_video:
             standard_video_order = ['1080p', '720p', '480p', '360p', 'Best Available']
             for q in standard_video_order:
                 if q in video_qualities or q == 'Best Available' and not video_qualities:
@@ -88,13 +95,34 @@ def extract_media_info(url: str) -> dict:
                         'ext': 'mp4',
                     })
 
-        # Audio formats
-        available_formats.extend([
-            {'id': 'audio_mp3_320k', 'label': 'Audio MP3 (320 kbps High)', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
-            {'id': 'audio_mp3_192k', 'label': 'Audio MP3 (192 kbps Standard)', 'type': 'audio', 'quality': '192k', 'ext': 'mp3'},
-            {'id': 'audio_mp3_128k', 'label': 'Audio MP3 (128 kbps Light)', 'type': 'audio', 'quality': '128k', 'ext': 'mp3'},
-            {'id': 'audio_m4a', 'label': 'Audio M4A / AAC', 'type': 'audio', 'quality': 'original', 'ext': 'm4a'},
-        ])
+            # Audio formats for video
+            available_formats.extend([
+                {'id': 'audio_mp3_320k', 'label': 'Audio MP3 (320 kbps High)', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
+                {'id': 'audio_mp3_192k', 'label': 'Audio MP3 (192 kbps Standard)', 'type': 'audio', 'quality': '192k', 'ext': 'mp3'},
+                {'id': 'audio_mp3_128k', 'label': 'Audio MP3 (128 kbps Light)', 'type': 'audio', 'quality': '128k', 'ext': 'mp3'},
+                {'id': 'audio_m4a', 'label': 'Audio M4A / AAC', 'type': 'audio', 'quality': 'original', 'ext': 'm4a'},
+            ])
+
+        # If it's an image post or carousel (no video)
+        if not has_video:
+            available_formats.append({
+                'id': 'image_original',
+                'label': 'High Quality Photo (JPG)',
+                'type': 'image',
+                'quality': 'original',
+                'ext': 'jpg',
+                'direct_url': thumbnail,
+            })
+        elif thumbnail:
+            # Also offer cover image for video posts
+            available_formats.append({
+                'id': 'image_cover',
+                'label': 'Cover Photo / Thumbnail (JPG)',
+                'type': 'image',
+                'quality': 'original',
+                'ext': 'jpg',
+                'direct_url': thumbnail,
+            })
 
         return {
             'platform': platform,

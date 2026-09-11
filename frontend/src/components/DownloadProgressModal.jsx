@@ -86,24 +86,26 @@ export default function DownloadProgressModal({ taskId, onClose, onTaskComplete 
 
         {/* Modal Header */}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
-            {task?.status === 'completed' ? (
-              <CheckCircle2 className="w-6 h-6 text-white" />
-            ) : task?.status === 'failed' || error ? (
-              <AlertCircle className="w-6 h-6 text-white" />
-            ) : (
-              <Loader2 className="w-6 h-6 text-white animate-spin" />
-            )}
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#6355F6] to-[#00E5FF] flex items-center justify-center shadow-lg shadow-[#6355F6]/25 p-[1px]">
+            <div className="w-full h-full bg-[#0e101a] rounded-[15px] flex items-center justify-center">
+              {task?.status === 'completed' ? (
+                <CheckCircle2 className="w-6 h-6 text-[#00E5FF]" />
+              ) : task?.status === 'failed' || error ? (
+                <AlertCircle className="w-6 h-6 text-rose-400" />
+              ) : (
+                <Loader2 className="w-6 h-6 text-[#00E5FF] animate-spin" />
+              )}
+            </div>
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">
               {task?.status === 'completed'
-                ? 'Download Complete!'
+                ? 'Download Ready!'
                 : task?.status === 'failed' || error
                 ? 'Processing Error'
                 : 'Downloading Media...'}
             </h3>
-            <p className="text-xs text-gray-400 truncate max-w-xs">
+            <p className="text-xs text-slate-400 truncate max-w-xs">
               {task?.title || 'Universal Downloader'}
             </p>
           </div>
@@ -112,23 +114,23 @@ export default function DownloadProgressModal({ taskId, onClose, onTaskComplete 
         {/* Progress Display */}
         <div className="mt-6">
           <div className="flex items-center justify-between text-xs mb-2">
-            <span className="text-gray-300 font-medium">
+            <span className="text-slate-300 font-medium">
               {task?.progress_message || 'Preparing task in background worker...'}
             </span>
-            <span className="font-mono text-indigo-300 font-semibold">
+            <span className="font-mono text-[#00E5FF] font-bold">
               {task ? `${Math.round(task.progress)}%` : '0%'}
             </span>
           </div>
 
           {/* Progress Bar Container */}
-          <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-inner">
+          <div className="w-full h-3 bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10 shadow-inner">
             <div
               className={`h-full rounded-full transition-all duration-300 ${
                 task?.status === 'completed'
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-500'
+                  ? 'bg-gradient-to-r from-[#6355F6] to-[#00E5FF]'
                   : task?.status === 'failed' || error
                   ? 'bg-rose-500'
-                  : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500'
+                  : 'bg-gradient-to-r from-[#6355F6] to-[#00E5FF]'
               }`}
               style={{ width: `${task?.progress || 5}%` }}
             />
@@ -179,7 +181,7 @@ export default function DownloadProgressModal({ taskId, onClose, onTaskComplete 
             <a
               href={task.download_url}
               download={task.file_name}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:brightness-110 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold duotone-btn text-white active:scale-95 transition-all"
             >
               <Download className="w-4 h-4" />
               <span>Save to Device</span>

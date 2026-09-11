@@ -49,7 +49,7 @@ class MediaInfoRequestSerializer(serializers.Serializer):
 
 class DownloadRequestSerializer(serializers.Serializer):
     url = serializers.URLField(required=True)
-    media_type = serializers.ChoiceField(choices=['video', 'audio', 'playlist'], default='video')
+    media_type = serializers.ChoiceField(choices=['video', 'audio', 'playlist', 'image'], default='video')
     format_id = serializers.CharField(required=False, default='best', allow_blank=True)
     title = serializers.CharField(required=False, default='', allow_blank=True)
     selected_tracks = serializers.ListField(

@@ -60,8 +60,19 @@ def extract_spotify_info(url: str) -> dict:
     sp = get_spotify_client()
 
     if sp:
-        return _extract_with_spotipy(sp, entity_type, entity_id, url)
-    
+        try:
+            return _extract_with_spotipy(sp, entity_type, entity_id, url)
+        except Exception:
+            pass
+
+    # Embed extraction (zero-auth, extracts full tracklist directly from Spotify embed)
+    try:
+        embed_data = _extract_with_embed(entity_type, entity_id, url)
+        if embed_data and (not embed_data.get('is_playlist') or embed_data.get('track_count', 0) > 0):
+            return embed_data
+    except Exception:
+        pass
+
     # Fallback to public API / web token
     token = fetch_spotify_public_token()
     if token:
@@ -198,6 +209,80 @@ def _extract_with_token(token: str, entity_type: str, entity_id: str, url: str) 
             ]
         }
 
+def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
+    """Extracts metadata and tracks directly from Spotify's embedded Next.js state."""
+    embed_url = f"https://open.spotify.com/embed/{entity_type}/{entity_id}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    res = requests.get(embed_url, headers=headers, timeout=10)
+    res.raise_for_status()
+
+    match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', res.text, re.DOTALL)
+    if not match:
+        raise ValueError("Spotify embed data not found")
+
+    data = json.loads(match.group(1))
+    entity = data.get('props', {}).get('pageProps', {}).get('state', {}).get('data', {}).get('entity', {})
+    if not entity:
+        raise ValueError("Spotify entity payload empty")
+
+    name = entity.get('name') or entity.get('title') or 'Spotify Collection'
+    cover = ''
+    if entity.get('coverArt') and entity['coverArt'].get('sources'):
+        cover = entity['coverArt']['sources'][0].get('url')
+    elif entity.get('visualIdentity', {}).get('image'):
+        cover = entity['visualIdentity']['image'][0].get('url')
+
+    is_playlist = entity_type in ['playlist', 'album']
+
+    if is_playlist:
+        raw_tracks = entity.get('trackList', [])
+        tracks = []
+        for idx, t in enumerate(raw_tracks):
+            track_id = t.get('uri', '').split(':')[-1] or f"track_{idx}"
+            artist = t.get('subtitle', '').replace('\xa0', ' ') or 'Unknown Artist'
+            t_title = t.get('title', 'Unknown Title')
+            duration = int(t.get('duration', 0) / 1000)
+            tracks.append({
+                'id': track_id,
+                'title': t_title,
+                'artist': artist,
+                'duration': duration,
+                'thumbnail': cover,
+                'query': f"{artist} - {t_title} audio"
+            })
+
+        return {
+            'platform': 'spotify',
+            'title': name,
+            'author': entity.get('subtitle') or 'Spotify',
+            'thumbnail': cover,
+            'url': url,
+            'is_playlist': True,
+            'track_count': len(tracks),
+            'tracks': tracks,
+            'formats': [
+                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
+                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
+            ]
+        }
+    else:
+        artists = ', '.join(a['name'] for a in entity.get('artists', [])) if entity.get('artists') else (entity.get('subtitle') or '')
+        return {
+            'platform': 'spotify',
+            'title': f"{artists} - {name}" if artists else name,
+            'author': artists,
+            'thumbnail': cover,
+            'duration': int(entity.get('duration', 0) / 1000),
+            'url': url,
+            'is_playlist': False,
+            'formats': [
+                {'id': 'audio_mp3_320k', 'label': 'MP3 (320 kbps High Quality)', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
+                {'id': 'audio_mp3_192k', 'label': 'MP3 (192 kbps Standard)', 'type': 'audio', 'quality': '192k', 'ext': 'mp3'},
+            ]
+        }
+
 def _extract_with_oembed(entity_type: str, entity_id: str, url: str) -> dict:
     """Zero-configuration fallback using Spotify oEmbed endpoint."""
     res = requests.get(f'https://open.spotify.com/oembed?url={url}', timeout=8)
@@ -248,6 +333,11 @@ def download_and_tag_spotify_track(
         'quiet': True,
         'no_warnings': True,
         'default_search': 'ytsearch',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['mweb', 'web_embedded', 'ios', 'android', 'web']
+            }
+        },
     }
 
     if progress_callback:

@@ -82,8 +82,8 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
             disabled={isLoading || !url.trim()}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-lg transition-all duration-200 ${
               isLoading || !url.trim()
-                ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-white/5'
-                : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white hover:brightness-110 active:scale-95 shadow-indigo-500/25'
+                ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/5'
+                : 'duotone-btn text-white active:scale-95'
             }`}
           >
             {isLoading ? (
@@ -102,12 +102,12 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
       </div>
 
       {/* Dynamic Hint */}
-      <div className="mt-2.5 px-2 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2.5 px-2 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00E5FF]"></span>
           <span>{config.hint}</span>
         </div>
-        <span className="hidden sm:inline text-gray-500">Press Enter ↵</span>
+        <span className="hidden sm:inline text-slate-500 font-mono">Enter ↵</span>
       </div>
     </div>
   );

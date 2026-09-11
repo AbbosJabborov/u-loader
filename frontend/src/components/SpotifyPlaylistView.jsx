@@ -77,25 +77,25 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
 
         <div className="flex-1 text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#6355F6]/15 text-[#00E5FF] border border-[#6355F6]/30">
               Spotify Playlist
             </span>
-            <span className="text-xs text-gray-400">{tracks.length} tracks</span>
+            <span className="text-xs text-slate-400">{tracks.length} tracks</span>
           </div>
 
           <h3 className="text-xl sm:text-2xl font-bold text-white mt-1.5">{title}</h3>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">Curated by {author || 'Spotify'}</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Curated by {author || 'Spotify'}</p>
 
           {/* Audio Bitrate Selector */}
           <div className="flex items-center justify-center sm:justify-start gap-2 mt-4 text-xs">
-            <span className="text-gray-400">Audio Quality:</span>
+            <span className="text-slate-400">Audio Quality:</span>
             <button
               type="button"
               onClick={() => setBitrate('320k')}
               className={`px-2.5 py-1 rounded-lg border font-medium transition-all ${
                 bitrate === '320k'
-                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                  : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                  ? 'bg-[#6355F6]/25 border-[#6355F6] text-[#00E5FF]'
+                  : 'bg-white/5 border-white/5 text-slate-400 hover:text-white'
               }`}
             >
               320 kbps (HQ)
@@ -105,8 +105,8 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
               onClick={() => setBitrate('192k')}
               className={`px-2.5 py-1 rounded-lg border font-medium transition-all ${
                 bitrate === '192k'
-                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                  : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                  ? 'bg-[#6355F6]/25 border-[#6355F6] text-[#00E5FF]'
+                  : 'bg-white/5 border-white/5 text-slate-400 hover:text-white'
               }`}
             >
               192 kbps (Normal)
@@ -120,10 +120,10 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
             type="button"
             onClick={handleDownloadZip}
             disabled={isStarting || selectedIds.size === 0}
-            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-semibold text-sm shadow-xl transition-all ${
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-bold text-sm shadow-xl transition-all ${
               selectedIds.size === 0 || isStarting
-                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:brightness-110 shadow-emerald-500/20 active:scale-95'
+                ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed'
+                : 'duotone-btn text-white active:scale-95'
             }`}
           >
             <Archive className="w-4 h-4" />
@@ -131,7 +131,7 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
               {isStarting ? 'Preparing ZIP...' : `Download ZIP (${selectedIds.size})`}
             </span>
           </button>
-          <span className="text-[11px] text-gray-500">Auto-tagged with ID3 & Album Art</span>
+          <span className="text-[11px] text-slate-400">Auto-tagged with ID3 & Album Art</span>
         </div>
       </div>
 
@@ -140,12 +140,12 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
         <button
           type="button"
           onClick={toggleSelectAll}
-          className="flex items-center gap-2 text-xs font-medium text-gray-300 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-white transition-colors"
         >
           {selectedIds.size === tracks.length ? (
-            <CheckSquare className="w-4 h-4 text-emerald-400" />
+            <CheckSquare className="w-4 h-4 text-[#00E5FF]" />
           ) : (
-            <Square className="w-4 h-4 text-gray-500" />
+            <Square className="w-4 h-4 text-slate-500" />
           )}
           <span>
             {selectedIds.size === tracks.length ? 'Deselect All' : `Select All (${tracks.length})`}
@@ -153,13 +153,13 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
         </button>
 
         <div className="relative w-48 sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter tracks..."
-            className="w-full bg-black/30 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+            className="w-full bg-black/30 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#6355F6]"
           />
         </div>
       </div>
@@ -181,16 +181,16 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
                 <button
                   type="button"
                   onClick={() => toggleTrack(track.id)}
-                  className="shrink-0 text-gray-400 hover:text-emerald-400 transition-colors"
+                  className="shrink-0 text-slate-400 hover:text-[#00E5FF] transition-colors"
                 >
                   {isSelected ? (
-                    <CheckSquare className="w-4 h-4 text-emerald-400" />
+                    <CheckSquare className="w-4 h-4 text-[#00E5FF]" />
                   ) : (
                     <Square className="w-4 h-4" />
                   )}
                 </button>
 
-                <span className="w-5 text-center text-[11px] text-gray-500 font-mono">
+                <span className="w-5 text-center text-[11px] text-slate-500 font-mono">
                   {idx + 1}
                 </span>
 
@@ -203,14 +203,14 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
                 )}
 
                 <div className="min-w-0">
-                  <p className="font-medium truncate text-gray-200">{track.title}</p>
-                  <p className="text-[11px] text-gray-400 truncate">{track.artist}</p>
+                  <p className="font-medium truncate text-slate-200">{track.title}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{track.artist}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 shrink-0 ml-3">
                 {track.duration ? (
-                  <span className="text-gray-500 font-mono text-[11px] hidden sm:inline">
+                  <span className="text-slate-500 font-mono text-[11px] hidden sm:inline">
                     {formatDuration(track.duration)}
                   </span>
                 ) : null}
@@ -219,7 +219,7 @@ export default function SpotifyPlaylistView({ playlistData, onDownload, isStarti
                   type="button"
                   onClick={() => handleSingleTrackDownload(track)}
                   title="Download this single track"
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-emerald-500 hover:text-white text-gray-400 transition-colors"
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-[#6355F6] hover:text-white text-slate-400 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>

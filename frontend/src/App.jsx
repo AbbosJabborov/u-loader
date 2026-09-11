@@ -100,20 +100,20 @@ export default function App() {
         
         {/* Hero Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-xs font-medium text-gray-300 backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>YouTube, Instagram, TikTok, Pinterest & Spotify in one place</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#6355F6]/10 border border-[#6355F6]/25 text-xs font-medium text-slate-300 backdrop-blur-md shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse"></span>
+            <span>YouTube • Instagram • TikTok • Pinterest • Spotify</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
             Download Media{' '}
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <span className="duotone-text">
               Without Limits
             </span>
           </h1>
 
-          <p className="text-sm sm:text-base text-gray-400 max-w-xl mx-auto">
-            High-speed extraction engine for pristine 4K video, 320kbps MP3s, watermark-free reels, and complete Spotify playlists.
+          <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
+            Universal high-speed engine for 4K video, 320kbps MP3s, watermark-free reels, and full Spotify playlist ZIP archives.
           </p>
         </div>
 

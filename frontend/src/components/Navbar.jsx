@@ -22,27 +22,31 @@ export default function Navbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-[#090a0f]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-[#090a10]/85 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         
-        {/* Brand Logo */}
+        {/* Brand Logo with User's icon.png */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 p-[1px] shadow-lg shadow-indigo-500/20">
-            <div className="w-full h-full bg-[#0d0f18] rounded-[11px] flex items-center justify-center">
-              <DownloadCloud className="w-5 h-5 text-indigo-400" />
+          <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#6355F6] to-[#00E5FF] p-[1.5px] shadow-lg shadow-[#6355F6]/25">
+            <div className="w-full h-full bg-[#0e101a] rounded-[14px] flex items-center justify-center overflow-hidden p-1">
+              <img
+                src="/icon.png"
+                alt="U-Loader Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+              <span className="font-extrabold text-lg tracking-tight text-white">
                 U-Loader
               </span>
-              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                v2.0
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#6355F6]/15 text-[#00E5FF] border border-[#6355F6]/30">
+                PRO
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 -mt-0.5 hidden sm:block">
-              Universal Media Downloader
+            <p className="text-[11px] text-slate-400 -mt-0.5 hidden sm:block">
+              Universal Media Engine
             </p>
           </div>
         </div>

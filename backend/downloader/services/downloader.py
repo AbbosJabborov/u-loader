@@ -26,6 +26,11 @@ def build_ydl_options(
         'quiet': True,
         'no_warnings': True,
         'noplaylist': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['mweb', 'web_embedded', 'ios', 'android', 'web']
+            }
+        },
     }
 
     if cookie_file:
@@ -81,9 +86,56 @@ def execute_media_download(
     platform = detect_platform(url)
     opts = build_ydl_options(output_dir, media_type, format_id, platform, progress_callback)
 
+    # Handle direct image downloads (e.g. Pinterest picture pins or direct image streams)
+    if media_type == 'image':
+        import requests
+        if platform == 'pinterest':
+            from .pinterest import extract_pinterest_media
+            p_info = extract_pinterest_media(url)
+            img_format = next((f for f in p_info.get('formats', []) if f.get('type') == 'image'), None)
+            img_url = (img_format and img_format.get('direct_url')) or p_info.get('thumbnail')
+            if img_url:
+                ext = img_format.get('ext', 'jpg') if img_format else 'jpg'
+                title = sanitize_filename(p_info.get('title', 'pinterest_image'))
+                out_file = output_dir / f"{title}.{ext}"
+                r = requests.get(
+                    img_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'},
+                    stream=True,
+                    timeout=25
+                )
+                r.raise_for_status()
+                with open(out_file, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=65536):
+                        f.write(chunk)
+                return out_file
+
     with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
+        try:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+        except Exception as e:
+            # Fallback for image extraction if yt-dlp fails on photo URL
+            if media_type == 'image':
+                import requests
+                from .extractor import extract_media_info
+                media_info = extract_media_info(url)
+                img_url = media_info.get('thumbnail')
+                if img_url:
+                    title = sanitize_filename(media_info.get('title', 'image'))
+                    out_file = output_dir / f"{title}.jpg"
+                    r = requests.get(
+                        img_url,
+                        headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'},
+                        stream=True,
+                        timeout=25
+                    )
+                    r.raise_for_status()
+                    with open(out_file, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=65536):
+                            f.write(chunk)
+                    return out_file
+            raise e
 
         # Handle post-processed extensions (e.g. mp3 conversion)
         expected_ext = 'mp3' if (media_type == 'audio' and 'm4a' not in format_id) else ('m4a' if 'm4a' in format_id else 'mp4')
@@ -95,8 +147,25 @@ def execute_media_download(
         if path_obj.exists():
             return path_obj
 
+        # Check for any images downloaded in output_dir
+        all_files = list(output_dir.iterdir())
+        image_files = [f for f in all_files if f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']]
+        if len(image_files) > 1:
+            # Carousel/multiple images -> bundle into zip
+            import zipfile
+            zip_path = output_dir / f"{sanitize_filename(info.get('title', 'instagram_post'))}.zip"
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for img_f in image_files:
+                    zipf.write(img_f, arcname=img_f.name)
+            return zip_path
+        elif len(image_files) == 1:
+            return image_files[0]
+
         # Scan folder for newly created file with same stem
         for f in output_dir.glob(f"{path_obj.stem}.*"):
             return f
+
+        if all_files:
+            return all_files[0]
 
         raise FileNotFoundError("Downloaded file could not be located after completion.")

@@ -10,44 +10,59 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background-color: #090a0f;
-  color: #f3f4f6;
+  background-color: #090a10;
+  color: #f1f5f9;
   overflow-x: hidden;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(225, 48, 108, 0.12) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(29, 185, 84, 0.1) 0px, transparent 50%);
+    radial-gradient(circle at 10% 10%, rgba(99, 85, 246, 0.16) 0%, transparent 45%),
+    radial-gradient(circle at 90% 20%, rgba(0, 229, 255, 0.11) 0%, transparent 40%),
+    radial-gradient(circle at 50% 90%, rgba(99, 85, 246, 0.12) 0%, transparent 50%);
   background-attachment: fixed;
 }
 
-/* Glassmorphism primitives */
+/* Duotone glass primitives */
 .glass-panel {
-  background: rgba(18, 20, 29, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+  background: rgba(14, 16, 26, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
 }
 
 .glass-panel-hover {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-panel-hover:hover {
-  background: rgba(24, 27, 40, 0.85);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(19, 22, 35, 0.85);
+  border-color: rgba(99, 85, 246, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 25px 50px -12px rgba(99, 85, 246, 0.15);
 }
 
 .glass-input {
-  background: rgba(13, 15, 24, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 14, 23, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.2s ease;
 }
 .glass-input:focus {
-  border-color: rgba(99, 102, 241, 0.8);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 85, 246, 0.8);
+  box-shadow: 0 0 0 3px rgba(99, 85, 246, 0.2), 0 0 20px rgba(0, 229, 255, 0.15);
   outline: none;
+}
+
+.duotone-text {
+  background: linear-gradient(135deg, #7C6CFF 0%, #6355F6 45%, #00E5FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.duotone-btn {
+  background: linear-gradient(135deg, #6355F6 0%, #00D2F0 100%);
+  box-shadow: 0 8px 24px -4px rgba(99, 85, 246, 0.35);
+}
+.duotone-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 10px 28px -2px rgba(0, 229, 255, 0.35);
 }
 
 /* Custom modern scrollbar */

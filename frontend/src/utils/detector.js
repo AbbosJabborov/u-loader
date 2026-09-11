@@ -71,7 +71,7 @@ export const detectPlatform = (url = '') => {
   if (/(?:youtube\.com\/(?:watch\?v=|shorts\/|playlist\?list=)|youtu\.be\/)/i.test(trimmed)) {
     return PLATFORMS.YOUTUBE;
   }
-  if (/instagram\.com\/(?:reel|p|tv)\//i.test(trimmed)) {
+  if (/instagram\.com\/(?:reel|p|tv|stories)\//i.test(trimmed)) {
     return PLATFORMS.INSTAGRAM;
   }
   if (/(?:tiktok\.com\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/i.test(trimmed)) {
