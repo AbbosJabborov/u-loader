@@ -15,7 +15,7 @@ from .serializers import (
 )
 from .services.extractor import extract_media_info
 from .services.detector import detect_platform
-from .tasks import process_download_task
+from .tasks import process_download_task, dispatch_download_task
 
 class HealthCheckView(APIView):
     """Health check endpoint for Docker and reverse proxies."""
@@ -88,8 +88,8 @@ class CreateDownloadTaskView(APIView):
             progress_message='Task queued'
         )
 
-        # Dispatch async Celery worker task
-        process_download_task.delay(str(task.id), selected_tracks=selected_tracks)
+        # Dispatch download job (Celery worker or fallback thread)
+        dispatch_download_task(str(task.id), selected_tracks=selected_tracks)
 
         return Response(
             {

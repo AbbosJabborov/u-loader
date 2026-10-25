@@ -173,3 +173,32 @@ def cleanup_expired_files_task():
                 pass
 
     return f"Cleaned up {deleted_count} expired files."
+
+
+def dispatch_download_task(task_id: str, selected_tracks: list = None):
+    """
+    Safely enqueues or executes a media download task.
+    - If Celery & Redis are operational, enqueues via process_download_task.delay()
+    - If Celery or Redis is unavailable (e.g. during local dev or broker outage),
+      spawns the download in a non-blocking background thread so users still get their download.
+    """
+    import threading
+    import logging
+    logger = logging.getLogger(__name__)
+
+    is_eager = getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False)
+    if not is_eager:
+        try:
+            return process_download_task.delay(str(task_id), selected_tracks=selected_tracks)
+        except Exception as exc:
+            logger.warning("Celery/Redis unavailable (%s). Falling back to background worker thread.", exc)
+
+    def _worker():
+        try:
+            process_download_task.run(str(task_id), selected_tracks=selected_tracks)
+        except Exception as err:
+            logger.exception("Background worker task failed for task %s: %s", task_id, err)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    return thread

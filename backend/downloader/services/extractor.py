@@ -1,6 +1,14 @@
 from __future__ import annotations
 import os
-import yt_dlp
+import warnings
+
+warnings.filterwarnings("ignore")
+
+try:
+    import yt_dlp
+    yt_dlp.YoutubeDL.deprecated_feature = lambda *args, **kwargs: None
+except Exception:
+    pass
 from django.conf import settings
 from .detector import detect_platform
 from .spotify import extract_spotify_info, is_spotify_url
@@ -40,7 +48,7 @@ def extract_media_info(url: str) -> dict:
         'noplaylist': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded', 'android', 'ios']
+                'player_client': ['all']
             }
         },
     }
@@ -71,7 +79,11 @@ def extract_media_info(url: str) -> dict:
             height = f.get('height')
             if vcodec and vcodec != 'none' and height:
                 has_video = True
-                if height >= 1080:
+                if height >= 2160:
+                    video_qualities.add('4K')
+                elif height >= 1440:
+                    video_qualities.add('2K')
+                elif height >= 1080:
                     video_qualities.add('1080p')
                 elif height >= 720:
                     video_qualities.add('720p')
@@ -80,13 +92,16 @@ def extract_media_info(url: str) -> dict:
                 elif height >= 360:
                     video_qualities.add('360p')
 
-        # Construct clean format options for frontend
+        # Construct clean format options prioritizing video
         available_formats = []
 
         if has_video:
-            standard_video_order = ['1080p', '720p', '480p', '360p', 'Best Available']
+            # Video qualities ordered from highest quality down to lowest
+            standard_video_order = ['4K', '2K', '1080p', '720p', '480p', '360p']
+            found_any = False
             for q in standard_video_order:
-                if q in video_qualities or q == 'Best Available' and not video_qualities:
+                if q in video_qualities:
+                    found_any = True
                     available_formats.append({
                         'id': f"video_{q.lower().replace(' ', '_')}",
                         'label': f"Video MP4 ({q})",
@@ -95,13 +110,23 @@ def extract_media_info(url: str) -> dict:
                         'ext': 'mp4',
                     })
 
-            # Audio formats for video
-            available_formats.extend([
-                {'id': 'audio_mp3_320k', 'label': 'Audio MP3 (320 kbps High)', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
-                {'id': 'audio_mp3_192k', 'label': 'Audio MP3 (192 kbps Standard)', 'type': 'audio', 'quality': '192k', 'ext': 'mp3'},
-                {'id': 'audio_mp3_128k', 'label': 'Audio MP3 (128 kbps Light)', 'type': 'audio', 'quality': '128k', 'ext': 'mp3'},
-                {'id': 'audio_m4a', 'label': 'Audio M4A / AAC', 'type': 'audio', 'quality': 'original', 'ext': 'm4a'},
-            ])
+            if not found_any:
+                available_formats.append({
+                    'id': 'video_best',
+                    'label': 'Video MP4 (Best Quality)',
+                    'type': 'video',
+                    'quality': 'Best',
+                    'ext': 'mp4',
+                })
+
+            # Streamlined Audio option for videos (320 kbps high quality MP3)
+            available_formats.append({
+                'id': 'audio_mp3_320k',
+                'label': 'Audio MP3 (320 kbps)',
+                'type': 'audio',
+                'quality': '320k',
+                'ext': 'mp3',
+            })
 
         # If it's an image post or carousel (no video)
         if not has_video:

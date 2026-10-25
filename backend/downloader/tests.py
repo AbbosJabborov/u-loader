@@ -53,3 +53,58 @@ class DownloaderAPITestCase(TestCase):
         self.assertIsNotNone(task.id)
         self.assertEqual(task.status, "pending")
         self.assertFalse(task.is_expired())
+
+
+class TelegramBotTestCase(TestCase):
+    def test_duration_formatter(self):
+        from .bot.keyboards import format_duration
+        self.assertEqual(format_duration(65), "01:05")
+        self.assertEqual(format_duration(3665), "01:01:05")
+        self.assertEqual(format_duration(None), "")
+
+    def test_keyboard_builder(self):
+        from .bot.keyboards import build_format_keyboard
+        formats = [
+            {'id': 'video_1080p', 'type': 'video', 'quality': '1080p', 'ext': 'mp4'},
+            {'id': 'audio_mp3_320k', 'type': 'audio', 'quality': '320k', 'ext': 'mp3'},
+            {'id': 'image_cover', 'type': 'image', 'quality': 'original', 'ext': 'jpg'},
+        ]
+        keyboard = build_format_keyboard("session123", formats)
+        self.assertIsNotNone(keyboard)
+        # Check that buttons contain callback_data with session id
+        button_data = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
+        self.assertIn("dl:session123:0", button_data)
+        self.assertIn("dl:session123:1", button_data)
+        self.assertIn("dl:session123:2", button_data)
+        self.assertIn("cancel:session123", button_data)
+
+    def test_progress_bar_helper(self):
+        from .bot.handlers import make_progress_bar
+        bar_50 = make_progress_bar(50, length=10)
+        self.assertEqual(bar_50, "▰▰▰▰▰▱▱▱▱▱")
+        bar_100 = make_progress_bar(100, length=10)
+        self.assertEqual(bar_100, "▰▰▰▰▰▰▰▰▰▰")
+        bar_0 = make_progress_bar(0, length=10)
+        self.assertEqual(bar_0, "▱▱▱▱▱▱▱▱▱▱")
+
+    def test_error_keyboards(self):
+        from .bot.keyboards import build_error_keyboard, build_reported_keyboard
+        err_kb = build_error_keyboard("err_token_99")
+        self.assertEqual(err_kb.inline_keyboard[0][0].callback_data, "rep_err:err_token_99")
+
+        rep_kb = build_reported_keyboard()
+        self.assertEqual(rep_kb.inline_keyboard[0][0].callback_data, "none")
+
+    def test_spotify_playlist_keyboard(self):
+        from .bot.keyboards import build_format_keyboard
+        from .services.spotify import get_spotify_playlist_formats
+
+        formats = get_spotify_playlist_formats()
+        self.assertEqual(len(formats), 2)
+        self.assertEqual(formats[0]['type'], 'playlist_tracks')
+        self.assertEqual(formats[1]['type'], 'playlist')
+
+        kb = build_format_keyboard("spot_sess_1", formats)
+        button_labels = [btn.text for row in kb.inline_keyboard for btn in row]
+        self.assertTrue(any("Each Song" in label for label in button_labels))
+        self.assertTrue(any("ZIP" in label for label in button_labels))

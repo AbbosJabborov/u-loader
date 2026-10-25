@@ -58,6 +58,7 @@ This boots up:
 - `u_loader_api`: Django REST API with Gunicorn (port 8088)
 - `u_loader_worker`: Celery worker with `ffmpeg` and `yt-dlp`
 - `u_loader_beat`: Celery Beat periodic scheduler (auto file cleanup)
+- `u_loader_telegram_bot`: Telegram Bot service with interactive format selection
 - `u_loader_redis`: Redis broker & cache
 - `u_loader_postgres`: PostgreSQL database
 
@@ -122,6 +123,37 @@ If Instagram challenges your datacenter VPS IP for certain Reels:
 1. Export your browser cookies in Netscape format using an extension like *Get cookies.txt LOCALLY*.
 2. Place the file on your VPS at `/opt/u-loader/backend/cookies/instagram.txt` (or `cookies.txt`).
 3. The Docker container automatically mounts this folder into `/app/cookies`.
+
+---
+
+## 🤖 Telegram Bot Integration
+
+U-Loader includes a fully integrated, asynchronous Telegram Bot powered by `python-telegram-bot` and Celery.
+
+### Key Capabilities:
+- **Telegram Menu Button**: Automatically registers bot commands (`/start`, `/help`, `/report`) and enables the native Telegram Menu Button next to the chat input field for quick access.
+- **Interactive Format Selection**: Users simply paste or forward any media link. The bot fetches metadata, displays title, author, duration, thumbnail, and presents an inline keyboard with quality options (e.g. 🎬 1080p, 720p, 480p, 🎵 320kbps MP3, 📦 Spotify Playlist ZIP).
+- **Real-Time Progress & Clear Feedback**: Live status updates from initialization $\rightarrow$ downloading with ASCII bar (`[▰▰▰▰▰▱▱▱▱▱] 50%`) $\rightarrow$ transcoding $\rightarrow$ delivery.
+- **Direct Telegram Delivery & 50 MB Fallback**: Files under 50 MB are sent directly to chat as streamable media; larger files receive a secure 60-minute direct HTTP download link.
+- **1-Click Bug Reporting & Diagnostics**: Whenever an error occurs during extraction or download, the bot displays the exact error in a tap-to-copy code box and provides a `🚨 Report This Bug to Developer` 1-click button that automatically forwards the link, error traceback, and platform details directly to the admin. Users can also manually submit reports anytime via `/report <details>`.
+
+### Configuration:
+1. Open [@BotFather](https://t.me/BotFather) on Telegram and create a new bot using `/newbot`.
+2. Find your personal Telegram Chat ID (e.g. by messaging [@userinfobot](https://t.me/userinfobot) or [@raw_data_bot](https://t.me/raw_data_bot)).
+3. Configure your `.env` file:
+   ```ini
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+   TELEGRAM_ADMIN_CHAT_ID=your_telegram_chat_id_here
+   API_BASE_URL=https://api-loader.claive.uz
+   ```
+4. When using Docker Compose:
+   ```bash
+   docker compose up -d --build telegram_bot
+   ```
+5. To run locally for development:
+   ```bash
+   python backend/manage.py run_telegram_bot
+   ```
 
 ---
 

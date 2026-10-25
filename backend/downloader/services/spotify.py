@@ -4,7 +4,16 @@ import re
 import json
 import zipfile
 import requests
-import yt_dlp
+import warnings
+
+warnings.filterwarnings("ignore")
+
+try:
+    import yt_dlp
+    yt_dlp.YoutubeDL.deprecated_feature = lambda *args, **kwargs: None
+except Exception:
+    pass
+
 from pathlib import Path
 from django.conf import settings
 from mutagen.easyid3 import EasyID3
@@ -105,6 +114,25 @@ def extract_spotify_info(url: str) -> dict:
 
     raise ValueError(f"Unable to extract songs for this Spotify {entity_type}. Please verify the link is public.")
 
+def get_spotify_playlist_formats() -> list[dict]:
+    """Returns format choices for Spotify playlists: individual track delivery (priority) or full ZIP."""
+    return [
+        {
+            'id': 'spotify_tracks_individual',
+            'label': '🎶 Send Each Song to Chat',
+            'type': 'playlist_tracks',
+            'quality': '320k',
+            'ext': 'mp3'
+        },
+        {
+            'id': 'spotify_zip_320k',
+            'label': '📦 Download All as ZIP (320 kbps)',
+            'type': 'playlist',
+            'quality': '320k',
+            'ext': 'zip'
+        },
+    ]
+
 def _extract_with_spotipy(sp, entity_type: str, entity_id: str, url: str) -> dict:
     if entity_type == 'track':
         track = sp.track(entity_id)
@@ -167,10 +195,7 @@ def _extract_with_spotipy(sp, entity_type: str, entity_id: str, url: str) -> dic
             'is_playlist': True,
             'track_count': len(tracks),
             'tracks': tracks,
-            'formats': [
-                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
-                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
-            ]
+            'formats': get_spotify_playlist_formats(),
         }
 
 def _extract_with_token(token: str, entity_type: str, entity_id: str, url: str) -> dict:
@@ -224,10 +249,7 @@ def _extract_with_token(token: str, entity_type: str, entity_id: str, url: str) 
             'is_playlist': True,
             'track_count': len(tracks),
             'tracks': tracks,
-            'formats': [
-                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
-                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
-            ]
+            'formats': get_spotify_playlist_formats(),
         }
 
 def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
@@ -294,10 +316,7 @@ def _extract_with_embed(entity_type: str, entity_id: str, url: str) -> dict:
             'is_playlist': True,
             'track_count': len(tracks),
             'tracks': tracks,
-            'formats': [
-                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
-                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
-            ]
+            'formats': get_spotify_playlist_formats(),
         }
     else:
         artists = ', '.join(a['name'] for a in entity.get('artists', [])) if entity.get('artists') else (entity.get('subtitle') or '')
@@ -397,10 +416,7 @@ def _extract_with_html(entity_type: str, entity_id: str, url: str) -> dict:
             'is_playlist': True,
             'track_count': len(tracks),
             'tracks': tracks,
-            'formats': [
-                {'id': 'spotify_zip_320k', 'label': 'Download All as ZIP (320 kbps)', 'type': 'playlist', 'quality': '320k', 'ext': 'zip'},
-                {'id': 'spotify_zip_192k', 'label': 'Download All as ZIP (192 kbps)', 'type': 'playlist', 'quality': '192k', 'ext': 'zip'},
-            ]
+            'formats': get_spotify_playlist_formats(),
         }
     else:
         return {
@@ -469,7 +485,7 @@ def download_and_tag_spotify_track(
         'default_search': 'ytsearch',
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded', 'android', 'ios']
+                'player_client': ['android', 'ios']
             }
         },
     }

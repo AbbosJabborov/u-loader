@@ -1,11 +1,23 @@
 from __future__ import annotations
 import os
 import re
-import yt_dlp
+import logging
+import warnings
+
+warnings.filterwarnings("ignore")
+
+try:
+    import yt_dlp
+    yt_dlp.YoutubeDL.deprecated_feature = lambda *args, **kwargs: None
+except Exception:
+    pass
+
 from pathlib import Path
 from django.conf import settings
 from .extractor import get_cookie_file
 from .detector import detect_platform
+
+logger = logging.getLogger(__name__)
 
 def sanitize_filename(name: str) -> str:
     """Sanitizes filename for cross-platform compatibility."""
@@ -21,6 +33,9 @@ def build_ydl_options(
     cookie_file = get_cookie_file(platform)
     out_template = str(output_dir / "%(title).150s_%(id)s.%(ext)s")
 
+    # Use android/ios clients by default to avoid YouTube's 403 Forbidden on adaptive web streams
+    player_clients = ['all'] if cookie_file else ['android', 'ios']
+
     opts = {
         'outtmpl': out_template,
         'quiet': True,
@@ -28,7 +43,7 @@ def build_ydl_options(
         'noplaylist': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'web_embedded', 'android', 'ios']
+                'player_client': player_clients
             }
         },
     }
@@ -41,16 +56,20 @@ def build_ydl_options(
 
     # Video download configurations
     if media_type == 'video':
-        if '1080' in format_id:
-            opts['format'] = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+        if '4k' in format_id or '2160' in format_id:
+            opts['format'] = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]/best'
+        elif '2k' in format_id or '1440' in format_id:
+            opts['format'] = 'bestvideo[height<=1440]+bestaudio/best[height<=1440]/best'
+        elif '1080' in format_id:
+            opts['format'] = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
         elif '720' in format_id:
-            opts['format'] = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+            opts['format'] = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
         elif '480' in format_id:
-            opts['format'] = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]/best'
+            opts['format'] = 'bestvideo[height<=480]+bestaudio/best[height<=480]/best'
         elif '360' in format_id:
-            opts['format'] = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/best[height<=360]/best'
+            opts['format'] = 'bestvideo[height<=360]+bestaudio/best[height<=360]/best'
         else:
-            opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best'
+            opts['format'] = 'bestvideo+bestaudio/best'
 
         opts['merge_output_format'] = 'mp4'
 
@@ -115,8 +134,20 @@ def execute_media_download(
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
         except Exception as e:
+            # Automatic fallback for YouTube / adaptive video 403 Forbidden or stream blocks
+            if media_type == 'video':
+                logger.warning("Primary video download stream failed (%s). Retrying with progressive stream...", e)
+                try:
+                    fallback_opts = dict(opts)
+                    fallback_opts['format'] = 'best[ext=mp4]/best'
+                    fallback_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'ios']}}
+                    with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
+                        info = fallback_ydl.extract_info(url, download=True)
+                        filename = fallback_ydl.prepare_filename(info)
+                except Exception:
+                    raise e
             # Fallback for image extraction if yt-dlp fails on photo URL
-            if media_type == 'image':
+            elif media_type == 'image':
                 import requests
                 from .extractor import extract_media_info
                 media_info = extract_media_info(url)
@@ -135,7 +166,9 @@ def execute_media_download(
                         for chunk in r.iter_content(chunk_size=65536):
                             f.write(chunk)
                     return out_file
-            raise e
+                raise e
+            else:
+                raise e
 
         # Handle post-processed extensions (e.g. mp3 conversion)
         expected_ext = 'mp3' if (media_type == 'audio' and 'm4a' not in format_id) else ('m4a' if 'm4a' in format_id else 'mp4')

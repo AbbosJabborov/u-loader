@@ -129,6 +129,38 @@ services:
     networks:
       - uloader_network
 
+  telegram_bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: u_loader_telegram_bot
+    restart: unless-stopped
+    command: python manage.py run_telegram_bot
+    environment:
+      - DEBUG=${DEBUG:-0}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-uloader-change-in-production-374829}
+      - POSTGRES_DB=${POSTGRES_DB:-uloader_db}
+      - POSTGRES_USER=${POSTGRES_USER:-uloader_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uloader_secure_password}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-}
+      - API_BASE_URL=${API_BASE_URL:-https://api-loader.claive.uz}
+      - FILE_EXPIRATION_MINUTES=${FILE_EXPIRATION_MINUTES:-60}
+    volumes:
+      - media_data:/app/media/downloads
+      - ./backend/cookies:/app/cookies
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - uloader_network
+
 volumes:
   postgres_data:
   redis_data:

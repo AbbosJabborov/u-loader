@@ -1,4 +1,13 @@
 import os
+import warnings
+warnings.filterwarnings("ignore")
+
+try:
+    import yt_dlp
+    yt_dlp.YoutubeDL.deprecated_feature = lambda *args, **kwargs: None
+except Exception:
+    pass
+
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -165,8 +174,38 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 # Celery Configuration
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+raw_broker = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+raw_backend = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+
+# Check if Redis broker can be resolved and connected to
+from urllib.parse import urlparse
+import socket
+
+can_connect_redis = False
+try:
+    parsed_broker = urlparse(raw_broker)
+    broker_host = parsed_broker.hostname or 'localhost'
+    broker_port = parsed_broker.port or 6379
+    socket.gethostbyname(broker_host)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.3)
+    if s.connect_ex((broker_host, broker_port)) == 0:
+        can_connect_redis = True
+    s.close()
+except Exception:
+    can_connect_redis = False
+
+if can_connect_redis:
+    CELERY_BROKER_URL = raw_broker
+    CELERY_RESULT_BACKEND = raw_backend
+    CELERY_TASK_ALWAYS_EAGER = False
+else:
+    # Graceful fallback when Redis is unresolvable or not running
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache+memory://'
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -184,3 +223,8 @@ SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET', '')
 # Cookies directory for Instagram / YouTube if needed
 COOKIES_DIR = BASE_DIR / 'cookies'
 COOKIES_DIR.mkdir(parents=True, exist_ok=True)
+
+# Telegram Bot configuration
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_ADMIN_CHAT_ID = os.getenv('TELEGRAM_ADMIN_CHAT_ID', '')
+API_BASE_URL = os.getenv('API_BASE_URL', 'https://api-loader.claive.uz')
