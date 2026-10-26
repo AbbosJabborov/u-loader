@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from './components/Navbar';
-import PlatformPills from './components/PlatformPills';
 import UniversalInput from './components/UniversalInput';
 import MediaCard from './components/MediaCard';
 import SpotifyPlaylistView from './components/SpotifyPlaylistView';
 import DownloadProgressModal from './components/DownloadProgressModal';
 import RecentHistory from './components/RecentHistory';
-import FeaturesSection from './components/FeaturesSection';
+import BackgroundCanvas from './components/BackgroundCanvas';
 import { fetchMediaInfo, startDownload } from './api/client';
-import { detectPlatform, PLATFORM_CONFIG, PLATFORMS } from './utils/detector';
-import { AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 const STORAGE_KEY = 'uloader_history';
 
 export default function App() {
   const [url, setUrl] = useState('');
-  const [activePlatformHint, setActivePlatformHint] = useState(PLATFORMS.GENERIC);
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [mediaInfo, setMediaInfo] = useState(null);
@@ -23,7 +19,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [history, setHistory] = useState([]);
 
-  // Load history from localStorage on mount
+  // Load history from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -31,7 +27,7 @@ export default function App() {
         setHistory(JSON.parse(saved));
       }
     } catch (e) {
-      console.warn('Failed to load history from localStorage');
+      console.warn('Failed to load history');
     }
   }, []);
 
@@ -93,41 +89,27 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between selection:bg-indigo-500/30 selection:text-indigo-200">
-      <Navbar />
+    <div className="relative min-h-screen flex flex-col justify-between selection:bg-zinc-800 selection:text-zinc-100">
+      {/* Animated Subtle Background Canvas */}
+      <BackgroundCanvas />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-12 pb-20">
+      {/* Main Content Area */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-4 py-12 sm:py-20">
         
-        {/* Hero Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#6355F6]/10 border border-[#6355F6]/25 text-xs font-medium text-slate-300 backdrop-blur-md shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse"></span>
-            <span>YouTube • Instagram • TikTok • Pinterest • Spotify</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Download Media{' '}
-            <span className="duotone-text">
-              Without Limits
+        {/* Minimal Top Brand */}
+        <div className="w-full max-w-2xl mx-auto flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="font-mono text-sm font-semibold tracking-wider text-zinc-300">
+              u-loader
             </span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
-            Universal high-speed engine for 4K video, 320kbps MP3s, watermark-free reels, and full Spotify playlist ZIP archives.
-          </p>
+          </div>
+          <span className="font-mono text-xs text-zinc-600">
+            v2.0
+          </span>
         </div>
 
-        {/* Platform Quick Selection Pills */}
-        <div className="mt-8 mb-4">
-          <PlatformPills
-            activePlatform={detectPlatform(url) || activePlatformHint}
-            onSelectPlatform={(platformId) => {
-              setActivePlatformHint(platformId);
-            }}
-          />
-        </div>
-
-        {/* Universal Smart Input */}
+        {/* Focused Input Bar */}
         <UniversalInput
           url={url}
           setUrl={(val) => {
@@ -136,21 +118,20 @@ export default function App() {
           }}
           onSubmit={handleFetchInfo}
           isLoading={isLoading}
-          platformHint={activePlatformHint}
         />
 
         {/* Error Alert Box */}
         {errorMessage && (
-          <div className="w-full max-w-3xl mx-auto mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm flex items-start gap-3 animate-in fade-in">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-400 mt-0.5" />
+          <div className="w-full max-w-2xl mx-auto mt-4 p-3 rounded-xl bg-red-950/30 border border-red-900/50 text-red-300 text-xs flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400 mt-0.5" />
             <div className="flex-1">
-              <p className="font-semibold">Unable to download media</p>
-              <p className="text-rose-200/80 mt-0.5 break-words">{errorMessage}</p>
+              <p className="font-medium">Error extracting media</p>
+              <p className="text-red-300/80 mt-0.5 break-words font-mono text-[11px]">{errorMessage}</p>
             </div>
           </div>
         )}
 
-        {/* Media Extracted Preview */}
+        {/* Extracted Media Details */}
         {mediaInfo && (
           mediaInfo.is_playlist ? (
             <SpotifyPlaylistView
@@ -167,7 +148,7 @@ export default function App() {
           )
         )}
 
-        {/* Download Task Active Modal */}
+        {/* Download Task Active Progress */}
         {activeTaskId && (
           <DownloadProgressModal
             taskId={activeTaskId}
@@ -176,27 +157,17 @@ export default function App() {
           />
         )}
 
-        {/* Recent Downloads History */}
+        {/* Collapsible History */}
         <RecentHistory
           history={history}
           onClearHistory={handleClearHistory}
         />
 
-        {/* Features & Architecture Grid */}
-        <FeaturesSection />
+      </div>
 
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full border-t border-white/5 bg-[#090a0f]/90 py-8 text-xs text-gray-500 text-center">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} U-Loader. Free & Open Universal Media Downloader.</p>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="text-gray-400 font-mono">loader.claive.uz</span>
-            <span>•</span>
-            <span className="text-gray-400 font-mono">api-loader.claive.uz</span>
-          </div>
-        </div>
+      {/* Minimal Footer */}
+      <footer className="relative z-10 py-4 text-center font-mono text-[11px] text-zinc-600">
+        u-loader • personal media downloader
       </footer>
     </div>
   );

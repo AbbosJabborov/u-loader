@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Clipboard, X, Loader2, ArrowRight } from 'lucide-react';
-import { detectPlatform, PLATFORM_CONFIG, PLATFORMS } from '../utils/detector';
+import { Link2, Clipboard, X, Loader2, ArrowRight } from 'lucide-react';
 
-export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platformHint }) {
+export default function UniversalInput({ url, setUrl, onSubmit, isLoading }) {
   const [isFocused, setIsFocused] = useState(false);
-  const detectedPlatform = detectPlatform(url) || platformHint || PLATFORMS.GENERIC;
-  const config = PLATFORM_CONFIG[detectedPlatform] || PLATFORM_CONFIG[PLATFORMS.GENERIC];
 
   const handlePaste = async () => {
     try {
@@ -25,22 +22,16 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto">
       <div
-        className={`relative flex items-center rounded-2xl glass-input transition-all duration-300 p-1.5 sm:p-2 ${
-          isFocused ? 'ring-2 ring-indigo-500/30 border-indigo-500/60 shadow-2xl shadow-indigo-500/10' : ''
+        className={`flex items-center rounded-xl studio-input p-1.5 transition-all ${
+          isFocused ? 'border-zinc-500 ring-1 ring-zinc-500/20' : 'border-zinc-800'
         }`}
       >
-        {/* Left Platform Tag */}
-        <div className="hidden sm:flex items-center pl-2 pr-1">
-          <span
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border transition-colors ${config.badgeBg}`}
-          >
-            {config.name}
-          </span>
+        <div className="pl-3 pr-2 text-zinc-500">
+          <Link2 className="w-4 h-4" />
         </div>
 
-        {/* Text Input */}
         <input
           type="url"
           value={url}
@@ -48,18 +39,18 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
-          placeholder={config.placeholder}
-          className="w-full bg-transparent px-3 py-3 text-sm sm:text-base text-gray-100 placeholder-gray-500 focus:outline-none"
+          placeholder="Paste URL..."
+          autoFocus
+          className="w-full bg-transparent px-2 py-2.5 text-sm sm:text-base text-zinc-100 placeholder-zinc-600 focus:outline-none font-mono"
         />
 
-        {/* Clear & Paste Shortcuts */}
-        <div className="flex items-center gap-1.5 pr-2">
+        <div className="flex items-center gap-1.5 pr-1">
           {url ? (
             <button
               type="button"
               onClick={() => setUrl('')}
-              className="p-2 text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-lg transition-colors"
-              title="Clear input"
+              className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors"
+              title="Clear"
             >
               <X className="w-4 h-4" />
             </button>
@@ -67,7 +58,7 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
             <button
               type="button"
               onClick={handlePaste}
-              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-white/5 rounded-lg border border-white/5 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-md transition-colors font-mono"
               title="Paste from clipboard"
             >
               <Clipboard className="w-3.5 h-3.5" />
@@ -75,39 +66,26 @@ export default function UniversalInput({ url, setUrl, onSubmit, isLoading, platf
             </button>
           )}
 
-          {/* Action Button */}
           <button
             type="button"
             onClick={onSubmit}
             disabled={isLoading || !url.trim()}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm shadow-lg transition-all duration-200 ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium text-xs sm:text-sm transition-all ${
               isLoading || !url.trim()
-                ? 'bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/5'
-                : 'duotone-btn text-white active:scale-95'
+                ? 'bg-zinc-800/60 text-zinc-600 cursor-not-allowed'
+                : 'bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-sm'
             }`}
           >
             {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="hidden sm:inline">Analyzing...</span>
-              </>
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <span>Download</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>Fetch</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}
           </button>
         </div>
-      </div>
-
-      {/* Dynamic Hint */}
-      <div className="mt-2.5 px-2 flex items-center justify-between text-xs text-slate-400">
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00E5FF]"></span>
-          <span>{config.hint}</span>
-        </div>
-        <span className="hidden sm:inline text-slate-500 font-mono">Enter ↵</span>
       </div>
     </div>
   );
