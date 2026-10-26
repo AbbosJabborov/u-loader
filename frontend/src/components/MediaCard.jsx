@@ -8,10 +8,10 @@ export default function MediaCard({ mediaInfo, onDownload, isStarting }) {
   const { title, thumbnail, duration, author, platform, formats = [] } = mediaInfo;
   const config = PLATFORM_CONFIG[platform] || PLATFORM_CONFIG[PLATFORMS.GENERIC];
 
-  // Group formats into video, audio, and image
+  // Group formats into video, audio, and image/carousel
   const videoFormats = formats.filter((f) => f.type === 'video');
   const audioFormats = formats.filter((f) => f.type === 'audio');
-  const imageFormats = formats.filter((f) => f.type === 'image');
+  const imageFormats = formats.filter((f) => f.type === 'image' || f.type === 'carousel');
 
   const initialTab =
     imageFormats.length > 0 && videoFormats.length === 0
@@ -43,9 +43,10 @@ export default function MediaCard({ mediaInfo, onDownload, isStarting }) {
   };
 
   const handleStart = () => {
+    const selectedFmtObj = formats.find((f) => f.id === selectedFormat);
     onDownload({
       url: mediaInfo.url,
-      media_type: activeTab,
+      media_type: selectedFmtObj?.type || activeTab,
       format_id: selectedFormat,
       title: title,
     });
@@ -132,7 +133,7 @@ export default function MediaCard({ mediaInfo, onDownload, isStarting }) {
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>Image</span>
+                  <span>Photos / Gallery</span>
                 </button>
               )}
               {audioFormats.length > 0 && (

@@ -20,6 +20,7 @@ from downloader.models import DownloadTask
 from downloader.services.detector import detect_platform
 from downloader.services.extractor import extract_media_info
 from downloader.services.spotify import download_and_tag_spotify_track, extract_spotify_info
+from downloader.services.audio import compress_audio_to_size
 from downloader.tasks import process_download_task, dispatch_download_task
 from .keyboards import (
     PLATFORM_ICONS,
@@ -524,11 +525,23 @@ async def deliver_spotify_playlist_individual(
                 failed_count += 1
                 continue
 
-            # Send native Telegram Audio to user's chat
+            # Send native Telegram Audio to user's chat with 413 size fallback
             if track_file and track_file.exists():
+                caption = f"🎵 <b>{html.escape(artist)} - {html.escape(title)}</b>"
+                file_to_send = track_file
+                cleanup_files = [track_file]
+
+                # Pre-check: If file size is >= 48 MB, compress to lower bitrate before attempting upload
+                if file_to_send.stat().st_size >= 48 * 1024 * 1024:
+                    logger.info("Track '%s' is %s MB (>= 48MB). Pre-compressing...", title, round(file_to_send.stat().st_size / (1024 * 1024), 1))
+                    comp = await asyncio.to_thread(compress_audio_to_size, file_to_send, 48 * 1024 * 1024, ['128k', '96k', '64k'])
+                    if comp and comp.exists():
+                        file_to_send = comp
+                        cleanup_files.append(comp)
+
+                upload_ok = False
                 try:
-                    caption = f"🎵 <b>{html.escape(artist)} - {html.escape(title)}</b>"
-                    with open(track_file, 'rb') as audio_fp:
+                    with open(file_to_send, 'rb') as audio_fp:
                         await context.bot.send_audio(
                             chat_id=chat_id,
                             audio=audio_fp,
@@ -540,15 +553,44 @@ async def deliver_spotify_playlist_individual(
                             read_timeout=180,
                             write_timeout=180
                         )
+                    upload_ok = True
                     sent_count += 1
                 except Exception as send_err:
-                    logger.warning("Failed to upload track '%s' to Telegram: %s", title, send_err)
-                    failed_count += 1
+                    err_str = str(send_err)
+                    is_too_large = "413" in err_str or "Too Large" in err_str or "too big" in err_str.lower()
+                    if is_too_large:
+                        logger.warning("Upload of '%s' failed with 413 (%s). Falling back to lower quality...", title, send_err)
+                        # Downsample to lower bitrate (128k, 96k, 64k)
+                        comp = await asyncio.to_thread(compress_audio_to_size, track_file, 48 * 1024 * 1024, ['128k', '96k', '64k'])
+                        if comp and comp.exists():
+                            cleanup_files.append(comp)
+                            try:
+                                with open(comp, 'rb') as audio_fp:
+                                    await context.bot.send_audio(
+                                        chat_id=chat_id,
+                                        audio=audio_fp,
+                                        title=title,
+                                        performer=artist,
+                                        duration=duration,
+                                        caption=caption + "\n<i>(optimized quality for Telegram)</i>",
+                                        parse_mode=ParseMode.HTML,
+                                        read_timeout=180,
+                                        write_timeout=180
+                                    )
+                                upload_ok = True
+                                sent_count += 1
+                            except Exception as retry_err:
+                                logger.warning("Retry with lower quality failed for '%s': %s", title, retry_err)
+
+                    if not upload_ok:
+                        logger.warning("Failed to upload track '%s' to Telegram: %s", title, send_err)
+                        failed_count += 1
                 finally:
-                    try:
-                        track_file.unlink(missing_ok=True)
-                    except Exception:
-                        pass
+                    for f_obj in cleanup_files:
+                        try:
+                            f_obj.unlink(missing_ok=True)
+                        except Exception:
+                            pass
 
                 # Rate-limiting cushion between Telegram uploads
                 await asyncio.sleep(0.8)
@@ -658,6 +700,13 @@ async def poll_and_deliver_task(
                 )
                 return
 
+            # If audio file is over 50MB, automatically downsample to lower bitrate to deliver directly to Telegram
+            if file_size > MAX_TELEGRAM_FILE_SIZE and (media_type == 'audio' or file_path.suffix.lower() in ('.mp3', '.m4a', '.flac', '.wav')):
+                comp = await asyncio.to_thread(compress_audio_to_size, file_path, MAX_TELEGRAM_FILE_SIZE, ['128k', '96k', '64k'])
+                if comp and comp.exists():
+                    file_path = comp
+                    file_size = comp.stat().st_size
+
             # Check file size against Telegram Bot API 50 MB limit
             if file_size <= MAX_TELEGRAM_FILE_SIZE:
                 try:
@@ -665,7 +714,14 @@ async def poll_and_deliver_task(
                 except Exception:
                     pass
 
-                caption = f"🎬 <b>{html.escape(title)}</b>" if media_type == 'video' else f"🎵 <b>{html.escape(title)}</b>"
+                if file_path.suffix.lower() == '.zip':
+                    caption = f"📦 <b>{html.escape(title)}</b>"
+                elif media_type in ('image', 'carousel') or file_path.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp'):
+                    caption = f"🖼️ <b>{html.escape(title)}</b>"
+                elif media_type == 'video' or file_path.suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov'):
+                    caption = f"🎬 <b>{html.escape(title)}</b>"
+                else:
+                    caption = f"🎵 <b>{html.escape(title)}</b>"
 
                 try:
                     with open(file_path, 'rb') as f:
@@ -679,6 +735,26 @@ async def poll_and_deliver_task(
                                 read_timeout=300,
                                 write_timeout=300
                             )
+                        elif file_path.suffix.lower() in ('.jpg', '.jpeg', '.png', '.webp'):
+                            try:
+                                await context.bot.send_photo(
+                                    chat_id=chat_id,
+                                    photo=f,
+                                    caption=caption,
+                                    parse_mode=ParseMode.HTML,
+                                    read_timeout=120,
+                                    write_timeout=120
+                                )
+                            except Exception:
+                                f.seek(0)
+                                await context.bot.send_document(
+                                    chat_id=chat_id,
+                                    document=f,
+                                    caption=caption,
+                                    parse_mode=ParseMode.HTML,
+                                    read_timeout=300,
+                                    write_timeout=300
+                                )
                         elif media_type == 'video' or file_path.suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov'):
                             await context.bot.send_video(
                                 chat_id=chat_id,

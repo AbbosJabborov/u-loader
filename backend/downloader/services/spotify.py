@@ -465,9 +465,12 @@ def download_and_tag_spotify_track(
     quality: str = '320k',
     progress_callback = None
 ) -> Path:
-    """Downloads matching audio from YouTube via ytsearch, encodes to MP3, and tags with ID3 metadata."""
-    query = f"ytsearch1:{artist} - {title} official audio"
-    clean_filename = re.sub(r'[\\/*?:"<>|]', "", f"{artist} - {title}")[:120]
+    """Downloads matching audio from YouTube via ytsearch, encodes to MP3, tags with ID3 metadata, and optimizes size."""
+    from .audio import compress_audio_to_size
+
+    clean_filename = re.sub(r'[\\/*?:"<>|]', "", f"{artist} - {title}").strip()[:120]
+    if not clean_filename:
+        clean_filename = "track"
     mp3_path = output_dir / f"{clean_filename}.mp3"
 
     bitrate = '320' if '320' in quality else '192'
@@ -493,8 +496,33 @@ def download_and_tag_spotify_track(
     if progress_callback:
         ydl_opts['progress_hooks'] = [progress_callback]
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([query])
+    # Try search variations to reliably match niche / foreign tracks
+    search_queries = []
+    if artist:
+        search_queries.append(f"ytsearch1:{artist} - {title}")
+        search_queries.append(f"ytsearch1:{artist} {title} official audio")
+    search_queries.append(f"ytsearch1:{title}")
+
+    download_success = False
+    for query in search_queries:
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([query])
+            if mp3_path.exists():
+                download_success = True
+                break
+            # Scan for newly created mp3
+            candidates = list(output_dir.glob("*.mp3"))
+            if candidates:
+                candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+                mp3_path = candidates[0]
+                download_success = True
+                break
+        except Exception:
+            continue
+
+    if not download_success and not mp3_path.exists():
+        raise FileNotFoundError(f"Could not locate or download track '{artist} - {title}' on YouTube.")
 
     # Tag with ID3 metadata (Artist, Title, Album)
     if mp3_path.exists():
@@ -505,7 +533,8 @@ def download_and_tag_spotify_track(
             audio.save(str(mp3_path))
 
         audio['title'] = title
-        audio['artist'] = artist
+        if artist:
+            audio['artist'] = artist
         audio.save()
 
         # Embed cover art if thumbnail is available
@@ -524,5 +553,15 @@ def download_and_tag_spotify_track(
                     id3.save()
             except Exception:
                 pass
+
+        # If file size is >= 48 MB, compress to lower bitrate so Telegram upload never triggers 413
+        if mp3_path.stat().st_size >= 48 * 1024 * 1024:
+            compressed = compress_audio_to_size(mp3_path, max_bytes=48 * 1024 * 1024, bitrates=['128k', '96k', '64k'])
+            if compressed and compressed.exists():
+                try:
+                    mp3_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                mp3_path = compressed
 
     return mp3_path

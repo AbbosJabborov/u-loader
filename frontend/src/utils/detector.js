@@ -23,8 +23,8 @@ export const PLATFORM_CONFIG = {
     color: '#E1306C',
     badgeBg: 'bg-pink-500/10 border-pink-500/30 text-pink-400',
     gradient: 'from-purple-600 via-pink-600 to-amber-500',
-    placeholder: 'Paste Instagram Reel or Post link...',
-    hint: 'Supports Reels, Videos, and Carousel posts',
+    placeholder: 'Paste Instagram Reel, Story, or Post link...',
+    hint: 'Supports Reels, Stories, Photos, and Multi-image Carousels',
   },
   [PLATFORMS.TIKTOK]: {
     id: 'tiktok',
@@ -32,8 +32,8 @@ export const PLATFORM_CONFIG = {
     color: '#00F2FE',
     badgeBg: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400',
     gradient: 'from-cyan-400 to-emerald-400',
-    placeholder: 'Paste TikTok video link (tiktok.com or vm.tiktok.com)...',
-    hint: 'Downloads original HD video without watermark',
+    placeholder: 'Paste TikTok video or photo slideshow link...',
+    hint: 'Downloads original HD video without watermark & photo slideshows',
   },
   [PLATFORMS.PINTEREST]: {
     id: 'pinterest',
@@ -41,8 +41,8 @@ export const PLATFORM_CONFIG = {
     color: '#E60023',
     badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
     gradient: 'from-red-600 to-red-800',
-    placeholder: 'Paste Pinterest Video Pin or pin.it link...',
-    hint: 'Extracts full HD video pins',
+    placeholder: 'Paste Pinterest Pin or pin.it link...',
+    hint: 'Extracts original HD photos and video pins',
   },
   [PLATFORMS.SPOTIFY]: {
     id: 'spotify',
@@ -71,7 +71,7 @@ export const detectPlatform = (url = '') => {
   if (/(?:youtube\.com\/(?:watch\?v=|shorts\/|playlist\?list=)|youtu\.be\/)/i.test(trimmed)) {
     return PLATFORMS.YOUTUBE;
   }
-  if (/instagram\.com\/(?:reel|p|tv|stories)\//i.test(trimmed)) {
+  if (/instagram\.com\/(?:reel|reels|p|tv|stories|share)\//i.test(trimmed)) {
     return PLATFORMS.INSTAGRAM;
   }
   if (/(?:tiktok\.com\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)/i.test(trimmed)) {

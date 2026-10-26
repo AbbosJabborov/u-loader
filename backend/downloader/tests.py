@@ -108,3 +108,54 @@ class TelegramBotTestCase(TestCase):
         button_labels = [btn.text for row in kb.inline_keyboard for btn in row]
         self.assertTrue(any("Each Song" in label for label in button_labels))
         self.assertTrue(any("ZIP" in label for label in button_labels))
+
+    def test_audio_compressor(self):
+        from .services.audio import compress_audio_to_size
+        import subprocess
+        from pathlib import Path
+
+        test_path = Path("/tmp/test_unit_audio.mp3")
+        try:
+            # Generate a 2 second silent mp3
+            subprocess.run(
+                ['ffmpeg', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-t', '2', '-b:a', '320k', str(test_path)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            compressed = compress_audio_to_size(test_path, max_bytes=100000, bitrates=['96k'])
+            self.assertIsNotNone(compressed)
+            self.assertTrue(compressed.exists())
+            self.assertLessEqual(compressed.stat().st_size, 100000)
+            compressed.unlink(missing_ok=True)
+        finally:
+            test_path.unlink(missing_ok=True)
+
+    def test_new_platform_detections(self):
+        # Instagram stories, reels, share
+        self.assertEqual(detect_platform("https://www.instagram.com/stories/natgeo/31234567890/"), "instagram")
+        self.assertEqual(detect_platform("https://www.instagram.com/reels/D123456789/"), "instagram")
+        self.assertEqual(detect_platform("https://www.instagram.com/share/p/C123456789/"), "instagram")
+        # TikTok photo post
+        self.assertEqual(detect_platform("https://www.tiktok.com/@creator/photo/7123456789012345678"), "tiktok")
+
+    def test_serializer_carousel_and_image(self):
+        from .serializers import DownloadRequestSerializer
+        data_image = {'url': 'https://www.pinterest.com/pin/123/', 'media_type': 'image'}
+        s_img = DownloadRequestSerializer(data=data_image)
+        self.assertTrue(s_img.is_valid())
+
+        data_carousel = {'url': 'https://www.instagram.com/p/123/', 'media_type': 'carousel', 'format_id': 'carousel_zip'}
+        s_car = DownloadRequestSerializer(data=data_carousel)
+        self.assertTrue(s_car.is_valid())
+
+    def test_keyboard_carousel_labels(self):
+        from .bot.keyboards import build_format_keyboard
+        formats = [
+            {'id': 'carousel_zip', 'label': '📦 Download All Items (ZIP - 5 items)', 'type': 'image', 'quality': '5 items', 'ext': 'zip'},
+            {'id': 'image_original', 'label': '🖼️ Primary Photo / Cover (HD JPG)', 'type': 'image', 'quality': 'original', 'ext': 'jpg'},
+        ]
+        kb = build_format_keyboard("sess_carousel", formats)
+        button_labels = [btn.text for row in kb.inline_keyboard for btn in row]
+        self.assertTrue(any("Download All Items (ZIP - 5 items)" in l for l in button_labels))
+        self.assertTrue(any("Primary Photo / Cover (HD JPG)" in l for l in button_labels))

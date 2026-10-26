@@ -86,11 +86,10 @@ def build_ydl_options(
         }]
 
     # Platform-specific tweaks
-    if platform == 'tiktok':
-        # TikTok: ensures unwatermarked stream extraction
-        opts['format'] = 'best[ext=mp4]/best'
-    elif platform == 'instagram':
-        opts['format'] = 'best[ext=mp4]/best'
+    if media_type == 'video':
+        if platform in ('tiktok', 'instagram'):
+            # TikTok/Instagram: ensures unwatermarked stream extraction
+            opts['format'] = 'best[ext=mp4]/best'
 
     return opts
 
@@ -105,7 +104,45 @@ def execute_media_download(
     platform = detect_platform(url)
     opts = build_ydl_options(output_dir, media_type, format_id, platform, progress_callback)
 
-    # Handle direct image downloads (e.g. Pinterest picture pins or direct image streams)
+    # 1. Handle multi-item Carousel ZIP downloads (Instagram / TikTok photo slideshows)
+    if format_id == 'carousel_zip' or media_type == 'carousel':
+        import zipfile
+        import requests
+        from .extractor import extract_media_info
+        media_info = extract_media_info(url)
+        title = sanitize_filename(media_info.get('title', f'{platform}_carousel'))
+
+        try:
+            carousel_opts = dict(opts)
+            carousel_opts['noplaylist'] = False
+            carousel_opts['outtmpl'] = str(output_dir / '%(autonumber)02d_%(title)s.%(ext)s')
+            with yt_dlp.YoutubeDL(carousel_opts) as carousel_ydl:
+                carousel_ydl.extract_info(url, download=True)
+        except Exception as e:
+            logger.warning("yt-dlp multi-item download encountered: %s. Checking output files...", e)
+
+        # Collect all downloaded items in output_dir
+        media_files = [f for f in output_dir.iterdir() if f.is_file() and not f.name.endswith('.zip') and not f.name.startswith('.')]
+        if not media_files:
+            # Fallback: download primary photo/thumbnail
+            thumb_url = media_info.get('thumbnail')
+            if thumb_url:
+                fb_file = output_dir / f"{title}_01.jpg"
+                r = requests.get(thumb_url, headers={'User-Agent': 'Mozilla/5.0'}, stream=True, timeout=25)
+                r.raise_for_status()
+                with open(fb_file, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=65536):
+                        f.write(chunk)
+                media_files.append(fb_file)
+
+        if media_files:
+            zip_path = output_dir / f"{title}.zip"
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for mf in media_files:
+                    zipf.write(mf, arcname=mf.name)
+            return zip_path
+
+    # 2. Handle direct image downloads (Pinterest, Instagram photo, TikTok photo, Cover thumbnail)
     if media_type == 'image':
         import requests
         if platform == 'pinterest':
@@ -117,6 +154,25 @@ def execute_media_download(
                 ext = img_format.get('ext', 'jpg') if img_format else 'jpg'
                 title = sanitize_filename(p_info.get('title', 'pinterest_image'))
                 out_file = output_dir / f"{title}.{ext}"
+                r = requests.get(
+                    img_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'},
+                    stream=True,
+                    timeout=25
+                )
+                r.raise_for_status()
+                with open(out_file, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=65536):
+                        f.write(chunk)
+                return out_file
+        else:
+            from .extractor import extract_media_info
+            media_info = extract_media_info(url)
+            img_format = next((f for f in media_info.get('formats', []) if f.get('id') == format_id or f.get('type') == 'image'), None)
+            img_url = (img_format and img_format.get('direct_url')) or media_info.get('thumbnail')
+            if img_url:
+                title = sanitize_filename(media_info.get('title', f'{platform}_photo'))
+                out_file = output_dir / f"{title}.jpg"
                 r = requests.get(
                     img_url,
                     headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'},

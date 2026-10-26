@@ -7,11 +7,11 @@ PLATFORM_PATTERNS = [
     ),
     (
         'instagram',
-        r'^(https?://)?(www\.)?instagram\.com/(reel|p|tv|stories)/.+'
+        r'^(https?://)?(www\.|m\.)?instagram\.com/(reel|reels|p|tv|stories|share)/.+'
     ),
     (
         'tiktok',
-        r'^(https?://)?(www\.|vm\.|vt\.)?tiktok\.com/(@[a-zA-Z0-9_.\-]+/video/\d+|[a-zA-Z0-9]+)'
+        r'^(https?://)?(www\.|vm\.|vt\.|m\.)?tiktok\.com/(@[a-zA-Z0-9_.\-]+/(video|photo)/\d+|t/[a-zA-Z0-9]+|[a-zA-Z0-9_\-]+)'
     ),
     (
         'pinterest',

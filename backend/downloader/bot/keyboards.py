@@ -59,8 +59,8 @@ def build_format_keyboard(session_id: str, formats: list[dict]) -> InlineKeyboar
         elif fmt_type == 'playlist':
             label = fmt.get('label') or (f"📦 Download ZIP ({quality})" if quality else "📦 Download Full ZIP")
             other_buttons.append([InlineKeyboardButton(label, callback_data=f"dl:{session_id}:{idx}")])
-        elif fmt_type == 'image':
-            label = "🖼️ Cover / Photo (JPG)"
+        elif fmt_type in ('image', 'carousel'):
+            label = fmt.get('label') or "🖼️ Photo / Cover (JPG)"
             other_buttons.append([InlineKeyboardButton(label, callback_data=f"dl:{session_id}:{idx}")])
         else:
             label = fmt.get('label', f"Download {ext}")
